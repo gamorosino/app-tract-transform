@@ -105,16 +105,13 @@ All parameters are provided via a `config.json` file.
 | `reference`  | Reference image defining the target space                           |
 | `affine`     | Linear transformation (ANTs `.mat` or converted FSL transform)      |
 | `warp`       | Nonlinear deformation field (`Warp.nii.gz` or `InverseWarp.nii.gz`) |
-| `invert`     | Apply inverse affine transform                                      |
 
 Optional parameters may include:
 
 | Field               | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
-| `pre_affine`        | Optional pre-affine transformation                         |
-| `compose`           | Affine composition mode                                    |
-| `convert_affine`    | Convert affine to ANTs affine type                         |
-| `reverse_operation` | Apply warp before affine (required in some ANTs workflows) |
+| `invert`            | Apply inverse affine transform (MOVING->FIXED SPACE)       |
+| `reverse_operation` | Apply warp before affine (FIXED->MOVING SPACE)             |
 
 ---
 
@@ -136,7 +133,37 @@ transformed/tract_transformed.tck
 
 ---
 
-# Usage
+
+---
+
+# Usage on Brainlife.io
+
+This app is designed to run on **Brainlife.io**.
+
+### Web UI
+
+1. Locate the **app-tract-transform** app
+2. Select the required inputs
+3. Execute the pipeline
+
+---
+
+### CLI
+
+```bash
+bl login
+
+bl app run --id <app_id> \
+           --project <project_id> \
+           --input tractogram:<tract_object> \
+           --input reference:<reference_object> \
+           --input affine:<affine_object> \
+           --input warp:<warp_object>
+```
+
+---
+
+# Usage Locally
 
 ### 1. Clone the repository
 
@@ -180,34 +207,6 @@ The app relies on the following software:
 
 All dependencies are executed through a containerized environment.
 
----
-
-# Usage on Brainlife.io
-
-This app is designed to run on **Brainlife.io**.
-
-### Web UI
-
-1. Locate the **app-tract-transform** app
-2. Select the required inputs
-3. Execute the pipeline
-
----
-
-### CLI
-
-```bash
-bl login
-
-bl app run --id <app_id> \
-           --project <project_id> \
-           --input tractogram:<tract_object> \
-           --input reference:<reference_object> \
-           --input affine:<affine_object> \
-           --input warp:<warp_object>
-```
-
----
 
 # License
 
