@@ -54,9 +54,28 @@ invert=$(jq -r '.invert // false' config.json)
 reverse_operation=$(jq -r '.reverse_operation // false' config.json)
 verbose=$(jq -r '.verbose // false' config.json)
 
+if [ "$reverse_operation" = "true" ] && { [ -z "$warp" ] || [ "$warp" = "null" ]; }; then
+    echo "Error: reverse_operation=true requires a valid forward warp" >&2
+    exit 1
+fi
+
+if [ "$invert" = "true" ] && [ "$reverse_operation" != "true" ] && { [ -z "$inverse_warp" ] || [ "$inverse_warp" = "null" ]; }; then
+    echo "Error: invert=true requires a valid inverse-warp unless reverse_operation=true" >&2
+    exit 1
+fi
+
 # Select warp direction
+# Priority:
+# 1) reverse_operation  -> use forward warp
+# 2) invert            -> use inverse warp
+# 3) otherwise         -> use forward warp
 selected_warp="None"
-if [ "$invert" = "true" ]; then
+
+if [ "$reverse_operation" = "true" ]; then
+    if [ -n "$warp" ] && [ "$warp" != "null" ]; then
+        selected_warp="$warp"
+    fi
+elif [ "$invert" = "true" ]; then
     if [ -n "$inverse_warp" ] && [ "$inverse_warp" != "null" ]; then
         selected_warp="$inverse_warp"
     fi
@@ -72,12 +91,16 @@ mkdir -p "$outputdir"
 
 output_track="${outputdir}/$(basename "${tractogram}")"
 
-echo "[INFO] tractogram      : $tractogram"
-echo "[INFO] moving image    : $input_moving"
-echo "[INFO] reference image : $input_fixed"
-echo "[INFO] affine          : $affine"
-echo "[INFO] selected warp   : $selected_warp"
-echo "[INFO] output          : $output_track"
+echo "[INFO] tractogram        : $tractogram"
+echo "[INFO] moving image      : $input_moving"
+echo "[INFO] reference image   : $input_fixed"
+echo "[INFO] affine            : $affine"
+echo "[INFO] warp              : $warp"
+echo "[INFO] inverse warp      : $inverse_warp"
+echo "[INFO] invert            : $invert"
+echo "[INFO] reverse_operation : $reverse_operation"
+echo "[INFO] selected warp     : $selected_warp"
+echo "[INFO] output            : $output_track"
 
 cmd=(bash "$APPLY_SCRIPT"
     --in "$tractogram"
