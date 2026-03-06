@@ -1,0 +1,79 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=1,vmem=8g,walltime=1:00:00
+#PBS -N app-tract-transform
+#PBS -V
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+### === Load parameters from config.json ===
+
+tractogram=$(jq -r '.tractogram' config.json)
+reference=$(jq -r '.reference' config.json)
+
+affine=$(jq -r '.affine' config.json)
+warp=$(jq -r '.warp' config.json)
+inverse_warp=$(jq -r '."inverse-warp"' config.json)
+
+invert=$(jq -r '.invert // false' config.json)
+reverse_operation=$(jq -r '.reverse_operation // false' config.json)
+verbose=$(jq -r '.verbose // false' config.json)
+
+### === Select warp direction ===
+
+selected_warp="None"
+
+if [ "$invert" = "true" ]; then
+    if [ "$inverse_warp" != "null" ]; then
+        selected_warp=$inverse_warp
+    fi
+else
+    if [ "$warp" != "null" ]; then
+        selected_warp=$warp
+    fi
+fi
+
+### === Output folder ===
+
+outputdir="${SCRIPT_DIR}/transformed"
+mkdir -p "$outputdir"
+
+output_track="${outputdir}/$(basename "$tractogram")"
+
+### === Build command for applyTransformations2tract.sh ===
+
+cmd="applyTransformations2tract.sh \
+  --in $tractogram \
+  --reference $reference \
+  --affine $affine \
+  --warp $selected_warp \
+  --out $output_track"
+
+if [ "$invert" = "true" ]; then
+    cmd="$cmd --invert"
+fi
+
+if [ "$reverse_operation" = "true" ]; then
+    cmd="$cmd --reverse_operation"
+fi
+
+if [ "$verbose" = "true" ]; then
+    cmd="$cmd -v"
+fi
+
+echo "[INFO] Running tractogram transformation"
+
+echo "$cmd"
+
+### === Run inside container ===
+
+singularity exec -e \
+  -B "$PWD":/work \
+  docker://gamorosino/tract_align:latest \
+  bash -lc "
+    cd /work
+    micromamba run -n tract_align $cmd
+  "
+
+echo "[INFO] Done"
