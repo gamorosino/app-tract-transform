@@ -6,16 +6,25 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APPLY_SCRIPT="${SCRIPT_DIR}/applyTransformations2tract.sh"
+APPLY_SCRIPT="/work/applyTransformations2tract.sh"
+
+expand_path() {
+    local p="$1"
+    [[ -z "$p" || "$p" == "null" ]] && { echo "$p"; return; }
+
+    p="${p/#\~/$HOME}"
+
+    realpath "$p"
+}
 
 echo "[INFO] Loading parameters from config.json"
 
-tractogram=$(jq -r '.input_tract' config.json)
+tractogram=$(expand_path "$(jq -r '.input_tract' config.json)")
 
 # Optional moving-space anatomical fields
-t1w=$(jq -r '.t1' config.json)
-t2w=$(jq -r '.t2' config.json)
-fa=$(jq -r '.fa' config.json)
+t1w=$(expand_path "$(jq -r '.t1' config.json)")
+t2w=$(expand_path "$(jq -r '.t2' config.json)")
+fa=$(expand_path "$(jq -r '.fa' config.json)")
 
 # Assign first available moving image
 if [ -n "$t1w" ] && [ "$t1w" != "null" ]; then
@@ -30,9 +39,9 @@ else
 fi
 
 # Optional fixed/reference anatomical fields
-t1w_fixed=$(jq -r '.t1_fixed' config.json)
-t2w_fixed=$(jq -r '.t2_fixed' config.json)
-fa_fixed=$(jq -r '.fa_fixed' config.json)
+t1w_fixed=$(expand_path "$(jq -r '.t1_fixed' config.json)")
+t2w_fixed=$(expand_path "$(jq -r '.t2_fixed' config.json)")
+fa_fixed=$(expand_path "$(jq -r '.fa_fixed' config.json)")
 
 # Assign first available fixed image
 if [ -n "$t1w_fixed" ] && [ "$t1w_fixed" != "null" ]; then
@@ -46,9 +55,9 @@ else
     exit 1
 fi
 
-affine=$(jq -r '.affine' config.json)
-warp=$(jq -r '.warp' config.json)
-inverse_warp=$(jq -r '."inverse-warp"' config.json)
+affine=$(expand_path "$(jq -r '.affine' config.json)")
+warp=$(expand_path "$(jq -r '.warp' config.json)")
+inverse_warp=$(expand_path "$(jq -r '."inverse-warp"' config.json)")
 
 invert=$(jq -r '.invert // false' config.json)
 reverse_operation=$(jq -r '.reverse_operation // false' config.json)
@@ -65,10 +74,6 @@ if [ "$invert" = "true" ] && [ "$reverse_operation" != "true" ] && { [ -z "$inve
 fi
 
 # Select warp direction
-# Priority:
-# 1) reverse_operation  -> use forward warp
-# 2) invert            -> use inverse warp
-# 3) otherwise         -> use forward warp
 selected_warp="None"
 
 if [ "$reverse_operation" = "true" ]; then
@@ -135,6 +140,7 @@ echo "$inner_cmd"
 
 singularity exec -e \
     -B "${SCRIPT_DIR}:/work" \
+    -B "${HOME}/data:${HOME}/data" \
     docker://gamorosino/tract_align:latest \
     bash -lc "$inner_cmd"
 
