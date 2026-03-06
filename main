@@ -3,14 +3,48 @@
 #PBS -N app-tract-transform
 #PBS -V
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APPLY_SCRIPT="${SCRIPT_DIR}/applyTransformations2tract.sh"
 
-### === Load parameters from config.json ===
+echo "[INFO] Loading parameters from config.json"
 
 tractogram=$(jq -r '.tractogram' config.json)
-reference=$(jq -r '.reference' config.json)
+
+# Optional moving-space anatomical fields
+t1w=$(jq -r '.t1' config.json)
+t2w=$(jq -r '.t2' config.json)
+fa=$(jq -r '.fa' config.json)
+
+# Assign first available moving image
+if [ -n "$t1w" ] && [ "$t1w" != "null" ]; then
+    input_moving="$t1w"
+elif [ -n "$t2w" ] && [ "$t2w" != "null" ]; then
+    input_moving="$t2w"
+elif [ -n "$fa" ] && [ "$fa" != "null" ]; then
+    input_moving="$fa"
+else
+    echo "Error: No valid moving image found in config.json" >&2
+    exit 1
+fi
+
+# Optional fixed/reference anatomical fields
+t1w_fixed=$(jq -r '.t1_fixed' config.json)
+t2w_fixed=$(jq -r '.t2_fixed' config.json)
+fa_fixed=$(jq -r '.fa_fixed' config.json)
+
+# Assign first available fixed image
+if [ -n "$t1w_fixed" ] && [ "$t1w_fixed" != "null" ]; then
+    input_fixed="$t1w_fixed"
+elif [ -n "$t2w_fixed" ] && [ "$t2w_fixed" != "null" ]; then
+    input_fixed="$t2w_fixed"
+elif [ -n "$fa_fixed" ] && [ "$fa_fixed" != "null" ]; then
+    input_fixed="$fa_fixed"
+else
+    echo "Error: No valid fixed/reference image found in config.json" >&2
+    exit 1
+fi
 
 affine=$(jq -r '.affine' config.json)
 warp=$(jq -r '.warp' config.json)
@@ -20,60 +54,62 @@ invert=$(jq -r '.invert // false' config.json)
 reverse_operation=$(jq -r '.reverse_operation // false' config.json)
 verbose=$(jq -r '.verbose // false' config.json)
 
-### === Select warp direction ===
-
+# Select warp direction
 selected_warp="None"
-
 if [ "$invert" = "true" ]; then
-    if [ "$inverse_warp" != "null" ]; then
-        selected_warp=$inverse_warp
+    if [ -n "$inverse_warp" ] && [ "$inverse_warp" != "null" ]; then
+        selected_warp="$inverse_warp"
     fi
 else
-    if [ "$warp" != "null" ]; then
-        selected_warp=$warp
+    if [ -n "$warp" ] && [ "$warp" != "null" ]; then
+        selected_warp="$warp"
     fi
 fi
 
-### === Output folder ===
-
+# Brainlife-style output directory
 outputdir="${SCRIPT_DIR}/transformed"
 mkdir -p "$outputdir"
 
-output_track="${outputdir}/$(basename "$tractogram")"
+output_track="${outputdir}/$(basename "${tractogram}")"
 
-### === Build command for applyTransformations2tract.sh ===
+echo "[INFO] tractogram      : $tractogram"
+echo "[INFO] moving image    : $input_moving"
+echo "[INFO] reference image : $input_fixed"
+echo "[INFO] affine          : $affine"
+echo "[INFO] selected warp   : $selected_warp"
+echo "[INFO] output          : $output_track"
 
-cmd="applyTransformations2tract.sh \
-  --in $tractogram \
-  --reference $reference \
-  --affine $affine \
-  --warp $selected_warp \
-  --out $output_track"
+cmd=(bash "$APPLY_SCRIPT"
+    --in "$tractogram"
+    --reference "$input_fixed"
+    --moving "$input_moving"
+    --affine "$affine"
+    --warp "$selected_warp"
+    --out "$output_track"
+)
 
 if [ "$invert" = "true" ]; then
-    cmd="$cmd --invert"
+    cmd+=(--invert)
 fi
 
 if [ "$reverse_operation" = "true" ]; then
-    cmd="$cmd --reverse_operation"
+    cmd+=(--reverse-operation)
 fi
 
 if [ "$verbose" = "true" ]; then
-    cmd="$cmd -v"
+    cmd+=(-v)
 fi
 
-echo "[INFO] Running tractogram transformation"
-
-echo "$cmd"
-
-### === Run inside container ===
+echo "[INFO] Running inside Singularity:"
+printf ' %q' "${cmd[@]}"
+echo
 
 singularity exec -e \
-  -B "$PWD":/work \
-  docker://gamorosino/tract_align:latest \
-  bash -lc "
-    cd /work
-    micromamba run -n tract_align $cmd
-  "
+    -B "${SCRIPT_DIR}:/work" \
+    docker://gamorosino/tract_align:latest \
+    bash -lc "
+        cd /work
+        micromamba run -n tract_align $(printf '%q ' "${cmd[@]}")
+    "
 
 echo "[INFO] Done"
