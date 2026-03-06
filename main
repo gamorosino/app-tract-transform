@@ -109,6 +109,7 @@ cmd=(bash "$APPLY_SCRIPT"
     --affine "$affine"
     --warp "$selected_warp"
     --out "$output_track"
+    --convert-affine
 )
 
 if [ "$invert" = "true" ]; then
