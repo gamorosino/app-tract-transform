@@ -10,7 +10,7 @@ APPLY_SCRIPT="${SCRIPT_DIR}/applyTransformations2tract.sh"
 
 echo "[INFO] Loading parameters from config.json"
 
-tractogram=$(jq -r '.tractogram' config.json)
+tractogram=$(jq -r '.input_tract' config.json)
 
 # Optional moving-space anatomical fields
 t1w=$(jq -r '.t1' config.json)
