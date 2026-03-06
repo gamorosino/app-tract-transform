@@ -128,12 +128,14 @@ echo "[INFO] Running inside Singularity:"
 printf ' %q' "${cmd[@]}"
 echo
 
+inner_cmd="cd /work && micromamba run -n tract_align $(printf '%q ' "${cmd[@]}")"
+
+echo "[INFO] Inner container command:"
+echo "$inner_cmd"
+
 singularity exec -e \
     -B "${SCRIPT_DIR}:/work" \
     docker://gamorosino/tract_align:latest \
-    bash -lc "
-        cd /work
-        micromamba run -n tract_align $(printf '%q ' "${cmd[@]}")
-    "
+    bash -lc "$inner_cmd"
 
 echo "[INFO] Done"
