@@ -37,6 +37,48 @@ Gabriele Amorosino
 
 ---
 
+# Citation
+
+If you use this app in your research, please cite:
+
+### Primary work
+
+Amorosino, G., Olivetti, E., Jovicich, J., & Avesani, P. (2023).
+**How Does White Matter Registration Affect Tractography Alignment?**
+IEEE International Symposium on Biomedical Imaging (ISBI).
+
+[https://doi.org/10.1109/ISBI53787.2023.10230615](https://doi.org/10.1109/ISBI53787.2023.10230615)
+
+---
+
+### Software dependencies
+
+**scilpy**
+
+Renauld, E., Boré, A., Poirier, C., Valcourt-Caron, A., Karan, P., Théberge, A., et al. (2026).
+*Tractography analysis with the scilpy toolbox.*
+Aperture Neuro.
+
+---
+
+**ANTs**
+
+Avants, B. B., Tustison, N. J., Song, G., Cook, P. A., Klein, A., & Gee, J. C. (2011).
+*A reproducible evaluation of ANTs similarity metric performance in brain image registration.*
+NeuroImage.
+
+---
+
+**Brainlife.io**
+
+Hayashi, S., et al. (2024).
+*Brainlife.io: a decentralized platform for reproducible neuroscience.*
+Nature Methods.
+
+[https://doi.org/10.1038/s41592-024-02237-2](https://doi.org/10.1038/s41592-024-02237-2)
+
+---
+
 # Inputs
 
 All parameters are provided via a `config.json` file.
@@ -164,48 +206,6 @@ bl app run --id <app_id> \
            --input affine:<affine_object> \
            --input warp:<warp_object>
 ```
-
----
-
-# Citation
-
-If you use this app in your research, please cite:
-
-### Primary work
-
-Amorosino, G., Olivetti, E., Jovicich, J., & Avesani, P. (2023).
-**How Does White Matter Registration Affect Tractography Alignment?**
-IEEE International Symposium on Biomedical Imaging (ISBI).
-
-[https://doi.org/10.1109/ISBI53787.2023.10230615](https://doi.org/10.1109/ISBI53787.2023.10230615)
-
----
-
-### Software dependencies
-
-**scilpy**
-
-Renauld, E., Boré, A., Poirier, C., Valcourt-Caron, A., Karan, P., Théberge, A., et al. (2026).
-*Tractography analysis with the scilpy toolbox.*
-Aperture Neuro.
-
----
-
-**ANTs**
-
-Avants, B. B., Tustison, N. J., Song, G., Cook, P. A., Klein, A., & Gee, J. C. (2011).
-*A reproducible evaluation of ANTs similarity metric performance in brain image registration.*
-NeuroImage.
-
----
-
-**Brainlife.io**
-
-Hayashi, S., et al. (2024).
-*Brainlife.io: a decentralized platform for reproducible neuroscience.*
-Nature Methods.
-
-[https://doi.org/10.1038/s41592-024-02237-2](https://doi.org/10.1038/s41592-024-02237-2)
 
 ---
 
