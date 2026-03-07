@@ -6,7 +6,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APPLY_SCRIPT="/work/applyTransformations2tract.sh"
+APPLY_SCRIPT="./applyTransformations2tract.sh"
 
 expand_path() {
     local p="$1"
@@ -133,14 +133,12 @@ echo "[INFO] Running inside Singularity:"
 printf ' %q' "${cmd[@]}"
 echo
 
-inner_cmd="cd /work && micromamba run -n tract_align $(printf '%q ' "${cmd[@]}")"
+inner_cmd="micromamba run -n tract_align $(printf '%q ' "${cmd[@]}")"
 
 echo "[INFO] Inner container command:"
 echo "$inner_cmd"
 
 singularity exec -e \
-    -B "${SCRIPT_DIR}:/work" \
-    -B "${HOME}/data:${HOME}/data" \
     docker://gamorosino/tract_align:latest \
     bash -lc "$inner_cmd"
 
