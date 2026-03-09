@@ -207,7 +207,6 @@ The app relies on the following software:
 
 All dependencies are executed through a containerized environment.
 
-
 # License
 
 MIT License
