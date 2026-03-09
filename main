@@ -6,20 +6,41 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APPLY_SCRIPT=${SCRIPT_DIR}"/applyTransformations2tract.sh"
+APPLY_SCRIPT="${SCRIPT_DIR}/applyTransformations2tract.sh"
 
 expand_path() {
     local p="$1"
     [[ -z "$p" || "$p" == "null" ]] && { echo "$p"; return; }
 
     p="${p/#\~/$HOME}"
-
     realpath "$p"
 }
 
 echo "[INFO] Loading parameters from config.json"
 
 tractogram=$(expand_path "$(jq -r '.input_tract' config.json)")
+tcks=$(expand_path "$(jq -r '.tcks' config.json)")
+
+# --- validate single-tract vs folder input ---
+if [[ "$tractogram" != "null" && -n "$tractogram" && "$tcks" != "null" && -n "$tcks" ]]; then
+    echo "Error: provide either 'input_tract' or 'tcks', not both." >&2
+    exit 1
+fi
+
+if [[ ( "$tractogram" == "null" || -z "$tractogram" ) && ( "$tcks" == "null" || -z "$tcks" ) ]]; then
+    echo "Error: one of 'input_tract' or 'tcks' must be provided." >&2
+    exit 1
+fi
+
+if [[ "$tractogram" != "null" && -n "$tractogram" && ! -f "$tractogram" ]]; then
+    echo "Error: input_tract does not exist: $tractogram" >&2
+    exit 1
+fi
+
+if [[ "$tcks" != "null" && -n "$tcks" && ! -d "$tcks" ]]; then
+    echo "Error: tcks is not a directory: $tcks" >&2
+    exit 1
+fi
 
 # Optional moving-space anatomical fields
 t1w=$(expand_path "$(jq -r '.t1' config.json)")
@@ -94,9 +115,6 @@ fi
 outputdir="${SCRIPT_DIR}/transformed"
 mkdir -p "$outputdir"
 
-output_track="${outputdir}/$(basename "${tractogram}")"
-
-echo "[INFO] tractogram        : $tractogram"
 echo "[INFO] moving image      : $input_moving"
 echo "[INFO] reference image   : $input_fixed"
 echo "[INFO] affine            : $affine"
@@ -105,40 +123,70 @@ echo "[INFO] inverse warp      : $inverse_warp"
 echo "[INFO] invert            : $invert"
 echo "[INFO] reverse_operation : $reverse_operation"
 echo "[INFO] selected warp     : $selected_warp"
-echo "[INFO] output            : $output_track"
+echo "[INFO] output directory  : $outputdir"
 
-cmd=(bash "$APPLY_SCRIPT"
-    --in "$tractogram"
-    --reference "$input_fixed"
-    --moving "$input_moving"
-    --affine "$affine"
-    --warp "$selected_warp"
-    --out "$output_track"
-    --convert-affine
-)
+run_one_tract() {
+    local in_tract="$1"
+    local out_tract="$2"
 
-if [ "$invert" = "true" ]; then
-    cmd+=(--invert)
+    echo "[INFO] tractogram        : $in_tract"
+    echo "[INFO] output            : $out_tract"
+
+    cmd=(bash "$APPLY_SCRIPT"
+        --in "$in_tract"
+        --reference "$input_fixed"
+        --moving "$input_moving"
+        --affine "$affine"
+        --warp "$selected_warp"
+        --out "$out_tract"
+        --convert-affine
+    )
+
+    if [ "$invert" = "true" ]; then
+        cmd+=(--invert)
+    fi
+
+    if [ "$reverse_operation" = "true" ]; then
+        cmd+=(--reverse-operation)
+    fi
+
+    if [ "$verbose" = "true" ]; then
+        cmd+=(-v)
+    fi
+
+    echo "[INFO] Running inside Singularity:"
+    printf ' %q' "${cmd[@]}"
+    echo
+
+    echo "[INFO] Running container command:"
+    printf ' %q' micromamba run -n tract_align "${cmd[@]}"
+    echo
+
+    singularity exec -e \
+        docker://gamorosino/tract_align:latest \
+        micromamba run -n tract_align "${cmd[@]}"
+}
+
+# --- run single tract or loop over folder ---
+if [[ "$tractogram" != "null" && -n "$tractogram" ]]; then
+    output_track="${outputdir}/$(basename "${tractogram}")"
+    run_one_tract "$tractogram" "$output_track"
+else
+    shopt -s nullglob
+    tck_files=("$tcks"/*.tck)
+    shopt -u nullglob
+
+    if [ ${#tck_files[@]} -eq 0 ]; then
+        echo "Error: no .tck files found in directory: $tcks" >&2
+        exit 1
+    fi
+
+    echo "[INFO] Found ${#tck_files[@]} .tck files in $tcks"
+
+    for tract_file in "${tck_files[@]}"; do
+        output_track="${outputdir}/$(basename "${tract_file}")"
+        run_one_tract "$tract_file" "$output_track"
+    done
 fi
-
-if [ "$reverse_operation" = "true" ]; then
-    cmd+=(--reverse-operation)
-fi
-
-if [ "$verbose" = "true" ]; then
-    cmd+=(-v)
-fi
-
-echo "[INFO] Running inside Singularity:"
-printf ' %q' "${cmd[@]}"
-echo
-
-echo "[INFO] Running container command:"
-printf ' %q' micromamba run -n tract_align "${cmd[@]}"
-echo
-
-singularity exec -e \
-    docker://gamorosino/tract_align:latest \
-    micromamba run -n tract_align "${cmd[@]}"
 
 echo "[INFO] Done"
