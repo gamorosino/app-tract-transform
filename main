@@ -37,9 +37,23 @@ if [[ "$tractogram" != "null" && -n "$tractogram" && ! -f "$tractogram" ]]; then
     exit 1
 fi
 
-if [[ "$tcks" != "null" && -n "$tcks" && ! -d "$tcks" ]]; then
-    echo "Error: tcks is not a directory: $tcks" >&2
-    exit 1
+resolved_tcks_dir="null"
+
+if [[ "$tcks" != "null" && -n "$tcks" ]]; then
+    if [[ ! -d "$tcks" ]]; then
+        echo "Error: tcks is not a directory: $tcks" >&2
+        exit 1
+    fi
+
+    # Brainlife tract collection can come either as:
+    #   root/data_folder/tcks/*.tck
+    # or:
+    #   root/data_folder/*.tck
+    if [[ -d "$tcks/tcks" ]]; then
+        resolved_tcks_dir="$tcks/tcks"
+    else
+        resolved_tcks_dir="$tcks"
+    fi
 fi
 
 # Optional moving-space anatomical fields
@@ -173,15 +187,15 @@ if [[ "$tractogram" != "null" && -n "$tractogram" ]]; then
     run_one_tract "$tractogram" "$output_track"
 else
     shopt -s nullglob
-    tck_files=("$tcks"/*.tck)
+    tck_files=("$resolved_tcks_dir"/*.tck)
     shopt -u nullglob
 
     if [ ${#tck_files[@]} -eq 0 ]; then
-        echo "Error: no .tck files found in directory: $tcks" >&2
+        echo "Error: no .tck files found in directory: $resolved_tcks_dir" >&2
         exit 1
     fi
 
-    echo "[INFO] Found ${#tck_files[@]} .tck files in $tcks"
+    echo "[INFO] Found ${#tck_files[@]} .tck files in $resolved_tcks_dir"
 
     for tract_file in "${tck_files[@]}"; do
         output_track="${outputdir}/$(basename "${tract_file}")"
