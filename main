@@ -40,20 +40,32 @@ fi
 resolved_tcks_dir="null"
 
 if [[ "$tcks" != "null" && -n "$tcks" ]]; then
-    if [[ ! -d "$tcks" ]]; then
-        echo "Error: tcks is not a directory: $tcks" >&2
+
+    if [[ -d "$tcks" ]]; then
+        # ok
+        :
+    else
+        echo "[WARN] tcks is not a directory: $tcks"
+        echo "[WARN] checking parent folder instead..."
+        tcks="$(dirname "$tcks")"
+    fi
+
+    # prefer nested tcks folder if it exists
+    if [[ -d "$tcks/tcks" ]]; then
+        tcks="$tcks/tcks"
+    fi
+
+    # check that we actually have tractograms
+    shopt -s nullglob
+    tck_files=("$tcks"/*.tck)
+    shopt -u nullglob
+
+    if [[ ${#tck_files[@]} -eq 0 ]]; then
+        echo "Error: no .tck files found in directory: $tcks" >&2
         exit 1
     fi
 
-    # Brainlife tract collection can come either as:
-    #   root/data_folder/tcks/*.tck
-    # or:
-    #   root/data_folder/*.tck
-    if [[ -d "$tcks/tcks" ]]; then
-        resolved_tcks_dir="$tcks/tcks"
-    else
-        resolved_tcks_dir="$tcks"
-    fi
+    resolved_tcks_dir="$tcks"
 fi
 
 # Optional moving-space anatomical fields
