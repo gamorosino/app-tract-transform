@@ -37,9 +37,34 @@ if [[ "$tractogram" != "null" && -n "$tractogram" && ! -f "$tractogram" ]]; then
     exit 1
 fi
 
-if [[ "$tcks" != "null" && -n "$tcks" && ! -d "$tcks" ]]; then
-    echo "Error: tcks is not a directory: $tcks" >&2
-    exit 1
+resolved_tcks_dir="null"
+
+if [[ "$tcks" != "null" && -n "$tcks" ]]; then
+
+    if [[ -d "$tcks" ]]; then
+        :
+    else
+        echo "[WARN] tcks is not a directory: $tcks"
+        echo "[WARN] checking parent folder instead..."
+        tcks="$(dirname "$tcks")"
+    fi
+
+    # prefer nested tcks folder if it exists
+    if [[ -d "$tcks/tcks" ]]; then
+        tcks="$tcks/tcks"
+    fi
+
+    # check that we actually have tractograms
+    shopt -s nullglob
+    tck_files=("$tcks"/*.tck)
+    shopt -u nullglob
+
+    if [[ ${#tck_files[@]} -eq 0 ]]; then
+        echo "Error: no .tck files found in directory: $tcks" >&2
+        exit 1
+    fi
+
+    resolved_tcks_dir="$tcks"
 fi
 
 # Optional moving-space anatomical fields
@@ -80,28 +105,33 @@ affine=$(expand_path "$(jq -r '.affine' config.json)")
 warp=$(expand_path "$(jq -r '.warp' config.json)")
 inverse_warp=$(expand_path "$(jq -r '."inverse-warp"' config.json)")
 
-invert=$(jq -r '.invert // false' config.json)
+forward_operation=$(jq -r '.forward_operation // false' config.json)
 reverse_operation=$(jq -r '.reverse_operation // false' config.json)
 verbose=$(jq -r '.verbose // false' config.json)
+affine_only=$(jq -r '.affine_only // false' config.json)
 
-if [ "$reverse_operation" = "true" ] && { [ -z "$warp" ] || [ "$warp" = "null" ]; }; then
-    echo "Error: reverse_operation=true requires a valid forward warp" >&2
-    exit 1
-fi
+if [ "$affine_only" != "true" ]; then
+    if [ "$reverse_operation" = "true" ] && { [ -z "$warp" ] || [ "$warp" = "null" ]; }; then
+        echo "Error: reverse_operation=true requires a valid forward warp" >&2
+        exit 1
+    fi
 
-if [ "$invert" = "true" ] && [ "$reverse_operation" != "true" ] && { [ -z "$inverse_warp" ] || [ "$inverse_warp" = "null" ]; }; then
-    echo "Error: invert=true requires a valid inverse-warp unless reverse_operation=true" >&2
-    exit 1
+    if [ "$forward_operation" = "true" ] && [ "$reverse_operation" != "true" ] && { [ -z "$inverse_warp" ] || [ "$inverse_warp" = "null" ]; }; then
+        echo "Error: forward_operation=true requires a valid inverse-warp unless reverse_operation=true" >&2
+        exit 1
+    fi
 fi
 
 # Select warp direction
 selected_warp="None"
 
-if [ "$reverse_operation" = "true" ]; then
+if [ "$affine_only" = "true" ]; then
+    selected_warp="None"
+elif [ "$reverse_operation" = "true" ]; then
     if [ -n "$warp" ] && [ "$warp" != "null" ]; then
         selected_warp="$warp"
     fi
-elif [ "$invert" = "true" ]; then
+elif [ "$forward_operation" = "true" ]; then
     if [ -n "$inverse_warp" ] && [ "$inverse_warp" != "null" ]; then
         selected_warp="$inverse_warp"
     fi
@@ -120,7 +150,8 @@ echo "[INFO] reference image   : $input_fixed"
 echo "[INFO] affine            : $affine"
 echo "[INFO] warp              : $warp"
 echo "[INFO] inverse warp      : $inverse_warp"
-echo "[INFO] invert            : $invert"
+echo "[INFO] affine_only       : $affine_only"
+echo "[INFO] forward_operation : $forward_operation"
 echo "[INFO] reverse_operation : $reverse_operation"
 echo "[INFO] selected warp     : $selected_warp"
 echo "[INFO] output directory  : $outputdir"
@@ -142,7 +173,7 @@ run_one_tract() {
         --convert-affine
     )
 
-    if [ "$invert" = "true" ]; then
+    if [ "$forward_operation" = "true" ]; then
         cmd+=(--invert)
     fi
 
@@ -173,15 +204,15 @@ if [[ "$tractogram" != "null" && -n "$tractogram" ]]; then
     run_one_tract "$tractogram" "$output_track"
 else
     shopt -s nullglob
-    tck_files=("$tcks"/*.tck)
+    tck_files=("$resolved_tcks_dir"/*.tck)
     shopt -u nullglob
 
     if [ ${#tck_files[@]} -eq 0 ]; then
-        echo "Error: no .tck files found in directory: $tcks" >&2
+        echo "Error: no .tck files found in directory: $resolved_tcks_dir" >&2
         exit 1
     fi
 
-    echo "[INFO] Found ${#tck_files[@]} .tck files in $tcks"
+    echo "[INFO] Found ${#tck_files[@]} .tck files in $resolved_tcks_dir"
 
     for tract_file in "${tck_files[@]}"; do
         output_track="${outputdir}/$(basename "${tract_file}")"
