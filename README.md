@@ -55,6 +55,8 @@ IEEE International Symposium on Biomedical Imaging (ISBI).
 
 ## Software dependencies
 
+Additionally, as this app integrates several core neuroimaging libraries, please acknowledge the following:
+
 ### scilpy
 
 Renauld, E., Boré, A., Poirier, C., Valcourt-Caron, A., Karan, P., Théberge, A., et al. (2026).

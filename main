@@ -110,6 +110,12 @@ reverse_operation=$(jq -r '.reverse_operation // false' config.json)
 verbose=$(jq -r '.verbose // false' config.json)
 affine_only=$(jq -r '.affine_only // false' config.json)
 
+# Prevent conflicting operation directions
+if [ "$forward_operation" = "true" ] && [ "$reverse_operation" = "true" ]; then
+    echo "Error: forward_operation and reverse_operation cannot both be true." >&2
+    exit 1
+fi
+
 if [ "$affine_only" != "true" ]; then
     if [ "$reverse_operation" = "true" ] && { [ -z "$warp" ] || [ "$warp" = "null" ]; }; then
         echo "Error: reverse_operation=true requires a valid forward warp" >&2
