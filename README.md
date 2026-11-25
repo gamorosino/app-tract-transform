@@ -1,5 +1,56 @@
 # Tractogram Transformation (app-tract-transform)
 
+<!-- brainlife-app:begin (generated from the App manifest; edit the manifest, not this block) -->
+
+> **Applies an ANTs affine and nonlinear warp to a .tck tractogram with scilpy, moving streamlines from the registration's moving space into the reference space.**
+
+Wraps applyTransformations2tract.sh, which composes the affine and the selected warp and applies them to every streamline with scilpy inside the gamorosino/tract_align container. Use it to bring a tractogram into another subject or template space after a T1w, T2w or FA registration. It needs at least one moving-space image and one reference-space image. Note: the code reads forward_operation, reverse_operation and verbose from config.json, but not invert or fsl_transform, so those two parameters currently have no effect.
+
+| | |
+|---|---|
+| 📥 **Inputs** | `neuro/track/tck` · `neuro/transform/nifti` · `neuro/anat/t1w` (optional) ×2 · `neuro/anat/t2w` (optional) ×2 · `neuro/tensor` (optional) ×2 |
+| 📤 **Outputs** | `neuro/track/tck` |
+| 🐳 **Container** | `gamorosino/tract_align:latest` |
+| ⚙️ **Resources** | 1 CPUs · 1 h walltime |
+| 🔗 **Run it** | [doi.org/10.25663/brainlife.app.902](https://doi.org/10.25663/brainlife.app.902) |
+
+#### 📥 Inputs
+
+| Input | Datatype | Required | Description |
+|---|---|---|---|
+| `input_tract` | `neuro/track/tck` | yes | Tractogram (.tck) in the moving space of the registration. |
+| `transformation` | `neuro/transform/nifti` | yes | Registration transform: ANTs affine plus forward warp and inverse warp. |
+| `t1w` | `neuro/anat/t1w` | no | Moving-space T1w image (the space the tractogram is in); first choice for the moving image. |
+| `t2w` | `neuro/anat/t2w` | no | Moving-space T2w image; used as moving image if no T1w is given. |
+| `tensor` | `neuro/tensor` | no | Moving-space tensor maps; FA is used as moving image if no T1w or T2w is given. |
+| `t1w_fixed` | `neuro/anat/t1w` | no | Reference (target) space T1w image; first choice for the reference image. |
+| `t2w_fixed` | `neuro/anat/t2w` | no | Reference-space T2w image; used if no fixed T1w is given. |
+| `tensor_fixed` | `neuro/tensor` | no | Reference-space tensor maps; FA is used as reference if no fixed T1w or T2w is given. |
+
+#### 📤 Outputs
+
+| Output | Datatype | Description |
+|---|---|---|
+| `transformed` | `neuro/track/tck` | The tractogram with transformed streamline coordinates, in the reference space. |
+
+<details>
+<summary><b>⚙️ Parameters</b> (4)</summary>
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `invert` | boolean | `true` | Assume registration was performed as: MOVING → REFERENCE This means the estimated transform maps MOVING space into REFERENCE space. Bring tractogram FROM MOVING → REFERENCE space Use: invert |
+| `reverse_operation` | boolean | `false` | Assume registration was performed as: MOVING → REFERENCE This means the estimated transform maps MOVING space into REFERENCE space. Bring tractogram FROM REFERENCE → MOVING space Use reverse operation (warp first, then linear) and do NOT select "invert" option |
+| `fsl_transform` | boolean | `false` | If true, converts affine and warp to from FSL to ANTs-compatible format |
+| `verbose` | boolean | `false` | Print verbose output from the transformation script in the log. |
+
+</details>
+
+📚 **References used by this App:**
+- Amorosino G, Olivetti E, Jovicich J, Avesani P. How Does White Matter Registration Affect Tractography Alignment? IEEE ISBI (2023). [doi:10.1109/ISBI53787.2023.10230615](https://doi.org/10.1109/ISBI53787.2023.10230615)
+- Hayashi S, et al. Brainlife.io: a decentralized platform for reproducible neuroscience. Nature Methods (2024). [doi:10.1038/s41592-024-02237-2](https://doi.org/10.1038/s41592-024-02237-2)
+
+<!-- brainlife-app:end -->
+
 This repository provides a reproducible workflow to apply spatial transformations to **tractograms (`.tck`)** using:
 
 ```bash
